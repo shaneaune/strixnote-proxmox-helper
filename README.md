@@ -36,6 +36,12 @@ chmod +x proxmox-create-strixnote-vm.sh
 ./proxmox-create-strixnote-vm.sh
 ```
 
+Or you can run the one line version
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/shaneaune/strixnote-proxmox-helper/main/proxmox-create-strixnote-vm.sh)
+```
+
 Follow the prompts.
 
 ## Notes

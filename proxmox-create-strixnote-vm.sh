@@ -75,6 +75,11 @@ if ! command -v qm >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Checking required packages..."
+
+apt update
+apt install -y curl git wget python3 libguestfs-tools
+
 # --- Required input ---
 read -rp "VM ID: " VMID
 if [[ -z "${VMID}" ]]; then
@@ -204,6 +209,7 @@ fi
 read -e -i "4" -p "CPU cores: " CORES
 read -e -i "8192" -p "Memory in MB: " MEMORY
 read -e -i "40" -p "Disk size in GB: " DISK_GB
+read -e -i "8080" -p "Web UI port: " WEB_PORT
 
 # --- Password prompts ---
 
@@ -415,6 +421,8 @@ if [ ! -d /home/user/strixnote ]; then
   git clone https://github.com/shaneaune/strixnote.git /home/user/strixnote
 fi
 
+echo "STRIXNOTE_WEB_PORT=$WEB_PORT" | sudo tee /home/user/strixnote/.env > /dev/null
+
 cd /home/user/strixnote
 echo "Starting StrixNote installer inside the VM..."
 sg docker -c "./install.sh"
@@ -433,5 +441,5 @@ echo "  Disk:    ${DISK_GB} GB"
 echo
 echo "Automated VM provisioning and StrixNote installation completed successfully."
 echo
-echo "Access StrixNote at: http://$VM_IP:8080"
+echo "Access StrixNote at: http://$VM_IP:$WEB_PORT"
 echo

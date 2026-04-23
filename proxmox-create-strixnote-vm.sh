@@ -421,7 +421,8 @@ if [ ! -d /home/user/strixnote ]; then
   git clone https://github.com/shaneaune/strixnote.git /home/user/strixnote
 fi
 
-echo "STRIXNOTE_WEB_PORT=$WEB_PORT" | sudo tee /home/user/strixnote/.env > /dev/null
+echo "STRIXNOTE_WEB_PORT=$WEB_PORT" > /home/user/strixnote/.env
+chown user:user /home/user/strixnote/.env
 
 cd /home/user/strixnote
 echo "Starting StrixNote installer inside the VM..."

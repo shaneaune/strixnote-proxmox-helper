@@ -77,8 +77,8 @@ fi
 
 echo "Checking required packages..."
 
-apt update
-apt install -y curl git wget python3 libguestfs-tools
+apt-get update
+apt-get install -y curl git wget python3 libguestfs-tools
 
 # --- Required input ---
 read -rp "VM ID: " VMID
@@ -410,8 +410,8 @@ echo "This may take several minutes while packages install."
 INSTALL_STARTED=1
 
 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@"$VM_IP" <<EOF
-sudo apt update
-sudo apt install -y docker.io docker-compose git
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose git
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG sudo user

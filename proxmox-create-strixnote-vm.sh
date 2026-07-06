@@ -352,7 +352,7 @@ qm set "$VMID" \
   --sshkeys "$SSH_KEY_FILE" \
   --ipconfig0 ip=dhcp \
   --nameserver 8.8.8.8 \
-  --ciupgrade 1
+  --ciupgrade 0
 
 log_step "Stage 6/8 - Finalizing VM disk size"
 echo "Resizing VM disk..."

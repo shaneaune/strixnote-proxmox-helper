@@ -98,7 +98,7 @@ select_gpu() {
     clean_description="${clean_description#*: }"
     clean_description="${clean_description#NVIDIA Corporation }"
     clean_description="$(sed -E \
-      's/ \[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\]//g; s/ \(rev [0-9a-fA-F]+\)$//' \
+      's/ \[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\]//g; s/ \(rev [0-9a-fA-F]+\)$//; s/^[^[]+ \[([^]]+)\]$/\1/' \
       <<< "$clean_description")"
 
     echo "  $((i + 1))) $clean_description"
@@ -125,7 +125,7 @@ select_gpu() {
   GPU_DESCRIPTION="${GPU_DESCRIPTION#*: }"
   GPU_DESCRIPTION="${GPU_DESCRIPTION#NVIDIA Corporation }"
   GPU_DESCRIPTION="$(sed -E \
-    's/ \[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\]//g; s/ \(rev [0-9a-fA-F]+\)$//' \
+    's/ \[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\]//g; s/ \(rev [0-9a-fA-F]+\)$//; s/^[^[]+ \[([^]]+)\]$/\1/' \
     <<< "$GPU_DESCRIPTION")"
 
   short_address="${GPU_PCI_ADDRESS#0000:}"

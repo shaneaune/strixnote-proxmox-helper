@@ -346,8 +346,35 @@ GPU_PCI_SHORT=""
 GPU_AUDIO_PCI_ADDRESS=""
 GPU_DESCRIPTION=""
 
+GPU_X_VGA=""
+
 if [[ "$INSTALL_MODE" == "gpu" ]]; then
   select_gpu
+
+  echo
+  echo "How will this GPU be used?"
+  echo "  1) Compute or secondary GPU"
+  echo "  2) Primary display GPU"
+  echo
+
+  while true; do
+    read -rp "GPU usage [1]: " GPU_USAGE_CHOICE
+    GPU_USAGE_CHOICE="${GPU_USAGE_CHOICE:-1}"
+
+    case "$GPU_USAGE_CHOICE" in
+      1)
+        GPU_X_VGA=""
+        break
+        ;;
+      2)
+        GPU_X_VGA=",x-vga=1"
+        break
+        ;;
+      *)
+        echo "Invalid selection. Enter 1 or 2."
+        ;;
+    esac
+  done
 fi
 
 # --- Password prompts ---
@@ -399,10 +426,17 @@ if [[ "$INSTALL_MODE" == "gpu" ]]; then
   echo "  GPU:      $GPU_DESCRIPTION"
   echo "  GPU PCI:  $GPU_PCI_ADDRESS"
 
+  if [[ "$GPU_X_VGA" == ",x-vga=1" ]]; then
+    echo "  GPU use:  Primary display"
+  else
+    echo "  GPU use:  Compute or secondary"
+  fi
+
   if [[ -n "$GPU_AUDIO_PCI_ADDRESS" ]]; then
     echo "  Audio PCI: $GPU_AUDIO_PCI_ADDRESS"
   fi
 else
+
   echo "  Mode:     CPU"
 fi
 
@@ -461,7 +495,7 @@ if [[ "$INSTALL_MODE" == "gpu" ]]; then
   echo "Attaching selected GPU..."
 
   qm set "$VMID" \
-    --hostpci0 "${GPU_PCI_SHORT},pcie=1,x-vga=1"
+    --hostpci0 "${GPU_PCI_SHORT},pcie=1${GPU_X_VGA}"
 
   if [[ -n "$GPU_AUDIO_PCI_ADDRESS" ]]; then
     GPU_AUDIO_PCI_SHORT="${GPU_AUDIO_PCI_ADDRESS#0000:}"

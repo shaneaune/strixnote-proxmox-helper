@@ -279,19 +279,26 @@ for i in "${!STORAGE_OPTIONS[@]}"; do
 done
 
 echo
-read -e -i "1" -p "Choose storage number: " STORAGE_CHOICE
 
-if ! [[ "$STORAGE_CHOICE" =~ ^[0-9]+$ ]]; then
-  echo "ERROR: Storage choice must be a number."
-  exit 1
-fi
+while true; do
+  read -rp "Choose storage number [1]: " STORAGE_CHOICE
+  STORAGE_CHOICE="${STORAGE_CHOICE:-1}"
 
-if (( STORAGE_CHOICE < 1 || STORAGE_CHOICE > ${#STORAGE_OPTIONS[@]} )); then
-  echo "ERROR: Invalid storage choice."
-  exit 1
-fi
+  if ! [[ "$STORAGE_CHOICE" =~ ^[0-9]+$ ]]; then
+    echo "That is not a valid choice. Please enter a number."
+    echo
+    continue
+  fi
 
-STORAGE="${STORAGE_OPTIONS[$((STORAGE_CHOICE - 1))]}"
+  if (( STORAGE_CHOICE < 1 || STORAGE_CHOICE > ${#STORAGE_OPTIONS[@]} )); then
+    echo "That is not a valid choice. Please enter a number between 1 and ${#STORAGE_OPTIONS[@]}."
+    echo
+    continue
+  fi
+
+  STORAGE="${STORAGE_OPTIONS[$((STORAGE_CHOICE - 1))]}"
+  break
+done
 
 if ! pvesm status 2>/dev/null | awk '{print $1}' | grep -qx "$STORAGE"; then
   echo "ERROR: Storage '$STORAGE' was not found."
@@ -346,35 +353,8 @@ GPU_PCI_SHORT=""
 GPU_AUDIO_PCI_ADDRESS=""
 GPU_DESCRIPTION=""
 
-GPU_X_VGA=""
-
 if [[ "$INSTALL_MODE" == "gpu" ]]; then
   select_gpu
-
-  echo
-  echo "How will this GPU be used?"
-  echo "  1) Compute or secondary GPU"
-  echo "  2) Primary display GPU"
-  echo
-
-  while true; do
-    read -rp "GPU usage [1]: " GPU_USAGE_CHOICE
-    GPU_USAGE_CHOICE="${GPU_USAGE_CHOICE:-1}"
-
-    case "$GPU_USAGE_CHOICE" in
-      1)
-        GPU_X_VGA=""
-        break
-        ;;
-      2)
-        GPU_X_VGA=",x-vga=1"
-        break
-        ;;
-      *)
-        echo "Invalid selection. Enter 1 or 2."
-        ;;
-    esac
-  done
 fi
 
 # --- Password prompts ---
@@ -425,12 +405,6 @@ if [[ "$INSTALL_MODE" == "gpu" ]]; then
   echo "  Mode:     GPU"
   echo "  GPU:      $GPU_DESCRIPTION"
   echo "  GPU PCI:  $GPU_PCI_ADDRESS"
-
-  if [[ "$GPU_X_VGA" == ",x-vga=1" ]]; then
-    echo "  GPU use:  Primary display"
-  else
-    echo "  GPU use:  Compute or secondary"
-  fi
 
   if [[ -n "$GPU_AUDIO_PCI_ADDRESS" ]]; then
     echo "  Audio PCI: $GPU_AUDIO_PCI_ADDRESS"
@@ -495,7 +469,7 @@ if [[ "$INSTALL_MODE" == "gpu" ]]; then
   echo "Attaching selected GPU..."
 
   qm set "$VMID" \
-    --hostpci0 "${GPU_PCI_SHORT},pcie=1${GPU_X_VGA}"
+    --hostpci0 "${GPU_PCI_SHORT},pcie=1"
 
   if [[ -n "$GPU_AUDIO_PCI_ADDRESS" ]]; then
     GPU_AUDIO_PCI_SHORT="${GPU_AUDIO_PCI_ADDRESS#0000:}"

@@ -64,10 +64,140 @@ select_timezone() {
   done
 }
 
+select_gpu() {
+  local gpu_lines=()
+  local gpu_choice
+  local selected_line
+  local pci_address
+  local pci_description
+  local clean_description
+  local short_address
+  local slot_prefix
+  local audio_line
+
+  mapfile -t gpu_lines < <(
+    lspci -Dnn |
+      grep -Ei 'VGA compatible controller|3D controller|Display controller' |
+      grep -i 'NVIDIA'
+  )
+
+  if [[ "${#gpu_lines[@]}" -eq 0 ]]; then
+    echo "ERROR: No supported NVIDIA graphics devices were detected."
+    return 1
+  fi
+
+  echo
+  echo "Available NVIDIA GPUs:"
+  echo
+
+  for i in "${!gpu_lines[@]}"; do
+    pci_address="${gpu_lines[$i]%% *}"
+    pci_description="${gpu_lines[$i]#* }"
+
+    clean_description="$pci_description"
+    clean_description="${clean_description#*: }"
+    clean_description="${clean_description#NVIDIA Corporation }"
+    clean_description="$(sed -E \
+      's/ \[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\]//g; s/ \(rev [0-9a-fA-F]+\)$//' \
+      <<< "$clean_description")"
+
+    echo "  $((i + 1))) $clean_description"
+    echo "     PCI address: $pci_address"
+    echo
+  done
+
+  while true; do
+    read -rp "Select the GPU to pass through: " gpu_choice
+
+    if [[ "$gpu_choice" =~ ^[0-9]+$ ]] &&
+       (( gpu_choice >= 1 && gpu_choice <= ${#gpu_lines[@]} )); then
+      break
+    fi
+
+    echo "Invalid selection."
+  done
+
+  selected_line="${gpu_lines[$((gpu_choice - 1))]}"
+  GPU_PCI_ADDRESS="${selected_line%% *}"
+  pci_description="${selected_line#* }"
+
+  GPU_DESCRIPTION="$pci_description"
+  GPU_DESCRIPTION="${GPU_DESCRIPTION#*: }"
+  GPU_DESCRIPTION="${GPU_DESCRIPTION#NVIDIA Corporation }"
+  GPU_DESCRIPTION="$(sed -E \
+    's/ \[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\]//g; s/ \(rev [0-9a-fA-F]+\)$//' \
+    <<< "$GPU_DESCRIPTION")"
+
+  short_address="${GPU_PCI_ADDRESS#0000:}"
+  slot_prefix="${GPU_PCI_ADDRESS%.*}"
+
+  audio_line="$(
+    lspci -Dnn |
+      grep -F "${slot_prefix}.1 " |
+      grep -Ei 'Audio device' |
+      head -n 1 || true
+  )"
+
+  GPU_AUDIO_PCI_ADDRESS=""
+
+  if [[ -n "$audio_line" ]]; then
+    GPU_AUDIO_PCI_ADDRESS="${audio_line%% *}"
+  fi
+
+  echo
+  echo "Selected GPU:"
+  echo "  $GPU_DESCRIPTION"
+  echo "  PCI address: $GPU_PCI_ADDRESS"
+
+  if [[ -n "$GPU_AUDIO_PCI_ADDRESS" ]]; then
+    echo "  Companion audio device: $GPU_AUDIO_PCI_ADDRESS"
+  else
+    echo "  Companion audio device: none detected"
+  fi
+
+  GPU_PCI_SHORT="$short_address"
+}
+
 echo "StrixNote Proxmox VM Helper"
 echo
 echo "Press Enter to accept the prepopulated default values."
 echo "Some steps take a while so be paitent"
+echo
+
+INSTALL_MODE=""
+STRIXNOTE_BRANCH=""
+INSTALL_ARGS=""
+
+while true; do
+  echo "Select the StrixNote installation mode:"
+  echo "  1) CPU"
+  echo "  2) GPU"
+  echo
+  read -rp "Installation mode [1]: " INSTALL_CHOICE
+  INSTALL_CHOICE="${INSTALL_CHOICE:-1}"
+
+  case "$INSTALL_CHOICE" in
+    1|cpu|CPU)
+      INSTALL_MODE="cpu"
+      STRIXNOTE_BRANCH="main"
+      INSTALL_ARGS=""
+      break
+      ;;
+    2|gpu|GPU)
+      INSTALL_MODE="gpu"
+      STRIXNOTE_BRANCH="feature/gpu-acceleration"
+      INSTALL_ARGS="--gpu"
+      break
+      ;;
+    *)
+      echo "Invalid selection. Enter 1 for CPU or 2 for GPU."
+      echo
+      ;;
+  esac
+done
+
+echo
+echo "Installation mode: ${INSTALL_MODE^^}"
 echo
 
 if ! command -v qm >/dev/null 2>&1; then
@@ -211,6 +341,15 @@ read -e -i "8192" -p "Memory in MB: " MEMORY
 read -e -i "40" -p "Disk size in GB: " DISK_GB
 read -e -i "8080" -p "Web UI port: " WEB_PORT
 
+GPU_PCI_ADDRESS=""
+GPU_PCI_SHORT=""
+GPU_AUDIO_PCI_ADDRESS=""
+GPU_DESCRIPTION=""
+
+if [[ "$INSTALL_MODE" == "gpu" ]]; then
+  select_gpu
+fi
+
 # --- Password prompts ---
 
 # User password
@@ -254,6 +393,19 @@ echo "  Bridge:   $BRIDGE"
 echo "  Cores:    $CORES"
 echo "  Memory:   ${MEMORY} MB"
 echo "  Disk:     ${DISK_GB} GB"
+
+if [[ "$INSTALL_MODE" == "gpu" ]]; then
+  echo "  Mode:     GPU"
+  echo "  GPU:      $GPU_DESCRIPTION"
+  echo "  GPU PCI:  $GPU_PCI_ADDRESS"
+
+  if [[ -n "$GPU_AUDIO_PCI_ADDRESS" ]]; then
+    echo "  Audio PCI: $GPU_AUDIO_PCI_ADDRESS"
+  fi
+else
+  echo "  Mode:     CPU"
+fi
+
 echo
 
 read -rp "Create VM with these settings? [y/N]: " CONFIRM
@@ -299,7 +451,27 @@ qm create "$VMID" \
   --vga serial0
 
 log_step "Stage 2/8 - Adding EFI disk"
-qm set "$VMID" --efidisk0 "${STORAGE}:1,efitype=4m,pre-enrolled-keys=1"
+if [[ "$INSTALL_MODE" == "gpu" ]]; then
+  qm set "$VMID" --efidisk0 "${STORAGE}:1,efitype=4m,pre-enrolled-keys=0"
+else
+  qm set "$VMID" --efidisk0 "${STORAGE}:1,efitype=4m,pre-enrolled-keys=1"
+fi
+
+if [[ "$INSTALL_MODE" == "gpu" ]]; then
+  echo "Attaching selected GPU..."
+
+  qm set "$VMID" \
+    --hostpci0 "${GPU_PCI_SHORT},pcie=1,x-vga=1"
+
+  if [[ -n "$GPU_AUDIO_PCI_ADDRESS" ]]; then
+    GPU_AUDIO_PCI_SHORT="${GPU_AUDIO_PCI_ADDRESS#0000:}"
+
+    echo "Attaching companion audio device..."
+
+    qm set "$VMID" \
+      --hostpci1 "${GPU_AUDIO_PCI_SHORT},pcie=1"
+  fi
+fi
 
 log_step "Stage 3/8 - Preparing Debian 12 cloud image"
 echo "This step may take a few minutes the first time."
@@ -418,12 +590,13 @@ sudo usermod -aG sudo user
 sudo usermod -aG docker user
 
 if [ ! -d /home/user/strixnote ]; then
-  git clone https://github.com/shaneaune/strixnote.git /home/user/strixnote
+  git clone --branch "$STRIXNOTE_BRANCH" --single-branch \
+    https://github.com/shaneaune/strixnote.git /home/user/strixnote
 fi
 
 cd /home/user/strixnote
 echo "Starting StrixNote installer inside the VM..."
-sg docker -c "STRIXNOTE_WEB_PORT=$WEB_PORT ./install.sh"
+sg docker -c "STRIXNOTE_WEB_PORT=$WEB_PORT ./install.sh $INSTALL_ARGS"
 EOF
 
 echo "+--------------------------------------------------------------------------+"

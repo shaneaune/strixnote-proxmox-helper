@@ -667,18 +667,34 @@ if [[ -z "$VM_IP" ]]; then
 fi
 
 echo "VM IP detected: $VM_IP"
-echo "Waiting for SSH to become available..."
 
-for i in {1..60}; do
-  if ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@"$VM_IP" "echo ok" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 2
-done
+wait_for_ssh() {
+  echo "Waiting for SSH to become available..."
+
+  for i in {1..90}; do
+    if ssh \
+      -o ConnectTimeout=2 \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null \
+      user@"$VM_IP" "echo ok" >/dev/null 2>&1; then
+      echo "SSH is available."
+      return 0
+    fi
+
+    sleep 2
+  done
+
+  echo "ERROR: SSH did not become available."
+  return 1
+}
+
+wait_for_ssh || exit 1
 
 echo "Running automated guest setup..."
 echo "This may take several minutes while packages install."
 INSTALL_STARTED=1
+
+set +e
 
 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@"$VM_IP" <<EOF
 sudo apt-get update
@@ -697,6 +713,53 @@ cd /home/user/strixnote
 echo "Starting StrixNote installer inside the VM..."
 sg docker -c "STRIXNOTE_WEB_PORT=$WEB_PORT ./install.sh $INSTALL_ARGS"
 EOF
+
+INSTALL_EXIT_CODE=$?
+
+set +e
+
+if [ "$INSTALL_EXIT_CODE" -eq 100 ]; then
+  echo
+  echo "The installer requested a reboot."
+  echo "Rebooting the VM..."
+
+  ssh \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    user@"$VM_IP" "sudo reboot" || true
+
+  echo "Waiting for the VM to shut down..."
+
+  for i in {1..30}; do
+    if ! ssh \
+      -o ConnectTimeout=2 \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null \
+      user@"$VM_IP" "echo ok" >/dev/null 2>&1; then
+      echo "VM is restarting."
+      break
+    fi
+
+    sleep 2
+  done
+
+  sleep 5
+  wait_for_ssh || exit 1
+
+  echo "Resuming StrixNote installation..."
+
+  ssh \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    user@"$VM_IP" \
+    "cd /home/user/strixnote && sg docker -c 'STRIXNOTE_WEB_PORT=$WEB_PORT ./install.sh $INSTALL_ARGS'"
+
+  INSTALL_EXIT_CODE=$?
+fi
+
+if [ "$INSTALL_EXIT_CODE" -ne 0 ]; then
+  exit "$INSTALL_EXIT_CODE"
+fi
 
 echo "+--------------------------------------------------------------------------+"
 echo "Your StrixNote installation is now complete"

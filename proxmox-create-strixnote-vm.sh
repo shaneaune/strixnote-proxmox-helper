@@ -428,6 +428,8 @@ while true; do
   break
 done
 
+declare -p DISK_GB
+
 while true; do
   read -rp "Web UI port [8080]: " WEB_PORT
   WEB_PORT="${WEB_PORT:-8080}"
@@ -455,6 +457,8 @@ GPU_DESCRIPTION=""
 if [[ "$INSTALL_MODE" == "gpu" ]]; then
   select_gpu
 fi
+
+declare -p DISK_GB
 
 # --- Password prompts ---
 

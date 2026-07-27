@@ -716,7 +716,9 @@ EOF
 
 INSTALL_EXIT_CODE=$?
 
-set +e
+set -e
+
+echo "Installer SSH exit code: $INSTALL_EXIT_CODE"
 
 if [ "$INSTALL_EXIT_CODE" -eq 100 ]; then
   echo
@@ -748,6 +750,8 @@ if [ "$INSTALL_EXIT_CODE" -eq 100 ]; then
 
   echo "Resuming StrixNote installation..."
 
+  set +e
+
   ssh \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
@@ -755,6 +759,10 @@ if [ "$INSTALL_EXIT_CODE" -eq 100 ]; then
     "cd /home/user/strixnote && sg docker -c 'STRIXNOTE_WEB_PORT=$WEB_PORT ./install.sh $INSTALL_ARGS'"
 
   INSTALL_EXIT_CODE=$?
+
+  set -e
+
+  echo "Resume installer SSH exit code: $INSTALL_EXIT_CODE"
 fi
 
 if [ "$INSTALL_EXIT_CODE" -ne 0 ]; then

@@ -186,7 +186,7 @@ while true; do
     2|gpu|GPU)
       INSTALL_MODE="gpu"
       STRIXNOTE_BRANCH="feature/gpu-acceleration"
-      INSTALL_ARGS="--gpu"
+      INSTALL_ARGS="--gpu --helper"
       break
       ;;
     *)

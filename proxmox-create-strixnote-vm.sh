@@ -210,17 +210,38 @@ echo "Checking required packages..."
 apt-get update
 apt-get install -y curl git wget python3 libguestfs-tools
 
-# --- Required input ---
-read -rp "VM ID: " VMID
-if [[ -z "${VMID}" ]]; then
-  echo "ERROR: VM ID is required."
-  exit 1
-fi
+HOST_CPU_COUNT=$(nproc)
 
-if qm status "$VMID" >/dev/null 2>&1; then
-  echo "ERROR: VM ID $VMID already exists."
-  exit 1
-fi
+# --- Required input ---
+while true; do
+  read -rp "VM ID: " VMID
+
+  if [[ -z "$VMID" ]]; then
+    echo "VM ID is required. Please try again."
+    echo
+    continue
+  fi
+
+  if ! [[ "$VMID" =~ ^[0-9]+$ ]]; then
+    echo "VM ID must be a number. Please try again."
+    echo
+    continue
+  fi
+
+  if (( VMID < 100 || VMID > 999999999 )); then
+    echo "VM ID must be between 100 and 999999999. Please try again."
+    echo
+    continue
+  fi
+
+  if qm status "$VMID" >/dev/null 2>&1; then
+    echo "VM ID $VMID already exists. Please choose another VM ID."
+    echo
+    continue
+  fi
+
+  break
+done
 
 # --- Defaults with pre-filled input ---
 NAME="StrixNote"
@@ -328,25 +349,102 @@ else
   done
 
   echo
-  read -e -i "1" -p "Choose bridge number: " BRIDGE_CHOICE
 
-  if ! [[ "$BRIDGE_CHOICE" =~ ^[0-9]+$ ]]; then
-    echo "ERROR: Bridge choice must be a number."
-    exit 1
-  fi
+  while true; do
+    read -rp "Choose bridge number [1]: " BRIDGE_CHOICE
+    BRIDGE_CHOICE="${BRIDGE_CHOICE:-1}"
 
-  if (( BRIDGE_CHOICE < 1 || BRIDGE_CHOICE > ${#BRIDGE_OPTIONS[@]} )); then
-    echo "ERROR: Invalid bridge choice."
-    exit 1
-  fi
+    if ! [[ "$BRIDGE_CHOICE" =~ ^[0-9]+$ ]]; then
+      echo "That is not a valid choice. Please enter a number."
+      echo
+      continue
+    fi
 
-  BRIDGE="${BRIDGE_OPTIONS[$((BRIDGE_CHOICE - 1))]}"
+    if (( BRIDGE_CHOICE < 1 || BRIDGE_CHOICE > ${#BRIDGE_OPTIONS[@]} )); then
+      echo "That is not a valid choice. Please enter a number between 1 and ${#BRIDGE_OPTIONS[@]}."
+      echo
+      continue
+    fi
+
+    BRIDGE="${BRIDGE_OPTIONS[$((BRIDGE_CHOICE - 1))]}"
+    break
+  done
 fi
 
-read -e -i "4" -p "CPU cores: " CORES
-read -e -i "8192" -p "Memory in MB: " MEMORY
-read -e -i "40" -p "Disk size in GB: " DISK_GB
-read -e -i "8080" -p "Web UI port: " WEB_PORT
+while true; do
+  read -rp "CPU cores [4]: " CORES
+  CORES="${CORES:-4}"
+
+  if ! [[ "$CORES" =~ ^[0-9]+$ ]]; then
+    echo "CPU cores must be a whole number."
+    echo
+    continue
+  fi
+
+  if (( CORES < 1 || CORES > HOST_CPU_COUNT )); then
+    echo "CPU cores must be between 1 and $HOST_CPU_COUNT."
+    echo
+    continue
+  fi
+
+  break
+done
+
+while true; do
+  read -rp "Memory (MB) [8192]: " MEMORY
+  MEMORY="${MEMORY:-8192}"
+
+  if ! [[ "$MEMORY" =~ ^[0-9]+$ ]]; then
+    echo "Memory must be a whole number."
+    echo
+    continue
+  fi
+
+  if (( MEMORY < 2048 )); then
+    echo "Memory must be at least 2048 MB."
+    echo
+    continue
+  fi
+
+  break
+done
+
+while true; do
+  read -rp "Disk size (GB) [20]: " DISK
+  DISK="${DISK:-20}"
+
+  if ! [[ "$DISK" =~ ^[0-9]+$ ]]; then
+    echo "Disk size must be a whole number."
+    echo
+    continue
+  fi
+
+  if (( DISK < 20 )); then
+    echo "Disk size must be at least 20 GB."
+    echo
+    continue
+  fi
+
+  break
+done
+while true; do
+  read -rp "Web UI port [8080]: " WEB_PORT
+  WEB_PORT="${WEB_PORT:-8080}"
+
+  if ! [[ "$WEB_PORT" =~ ^[0-9]+$ ]]; then
+    echo "Web UI port must be a whole number."
+    echo
+    continue
+  fi
+
+  if (( WEB_PORT < 1 || WEB_PORT > 65535 )); then
+    echo "Web UI port must be between 1 and 65535."
+    echo
+    continue
+  fi
+
+  break
+done
 
 GPU_PCI_ADDRESS=""
 GPU_PCI_SHORT=""
@@ -424,14 +522,6 @@ case "${CONFIRM}" in
     exit 0
     ;;
 esac
-
-# --- Test mode (skip VM creation) ---
-if [[ "${TEST_MODE:-0}" == "1" ]]; then
-  echo
-  echo "TEST MODE: Skipping VM creation."
-  echo "Collected settings are valid."
-  exit 0
-fi
 
 # --- Stop after validation/selection (for fast testing) ---
 if [[ "${STOP_AFTER_SELECTION:-0}" == "1" ]]; then

@@ -410,16 +410,16 @@ while true; do
 done
 
 while true; do
-  read -rp "Disk size (GB) [20]: " DISK
-  DISK="${DISK:-20}"
+  read -rp "Disk size (GB) [20]: " DISK_GB
+  DISK_GB="${DISK_GB:-20}"
 
-  if ! [[ "$DISK" =~ ^[0-9]+$ ]]; then
+  if ! [[ "$DISK_GB" =~ ^[0-9]+$ ]]; then
     echo "Disk size must be a whole number."
     echo
     continue
   fi
 
-  if (( DISK < 20 )); then
+  if (( DISK_GB < 20 )); then
     echo "Disk size must be at least 20 GB."
     echo
     continue
@@ -427,6 +427,7 @@ while true; do
 
   break
 done
+
 while true; do
   read -rp "Web UI port [8080]: " WEB_PORT
   WEB_PORT="${WEB_PORT:-8080}"

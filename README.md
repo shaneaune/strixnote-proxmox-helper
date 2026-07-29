@@ -40,16 +40,7 @@ The helper script automatically configures GPU passthrough for the new virtual m
 
 ## Usage
 
-Clone the experimental GPU branch and run the helper script:
-
-```bash
-git clone --branch feature/gpu-acceleration https://github.com/shaneaune/strixnote-proxmox-helper.git
-cd strixnote-proxmox-helper
-chmod +x proxmox-create-strixnote-vm.sh
-./proxmox-create-strixnote-vm.sh
-```
-
-Or run the latest version directly:
+Run the latest version directly:
 
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/shaneaune/strixnote-proxmox-helper/feature/gpu-acceleration/proxmox-create-strixnote-vm.sh)

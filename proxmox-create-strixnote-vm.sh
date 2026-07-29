@@ -161,7 +161,7 @@ select_gpu() {
 echo "StrixNote Proxmox VM Helper"
 echo
 echo "Press Enter to accept the prepopulated default values."
-echo "Some steps take a while so be paitent"
+echo "Some steps take a while, so please be patient."
 echo
 
 INSTALL_MODE=""

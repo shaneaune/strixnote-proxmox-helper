@@ -20,7 +20,7 @@ The StrixNote Proxmox Helper automates the creation of a Debian 12 virtual machi
 - Optional NVIDIA GPU passthrough
 - Optional NVIDIA driver installation
 - Automatic reboot and installation resume during GPU installations
-- Installs Docker, Git, and StrixNote
+- Installs all required software and StrixNote
 - Minimal user interaction
 
 ## Requirements

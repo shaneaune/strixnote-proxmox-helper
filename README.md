@@ -8,42 +8,70 @@
 |    |_/|_|_|\_|                                                                 |
 +--------------------------------------------------------------------------------+
 ```
-# StrixNote Proxmox VM Helper
+# StrixNote Proxmox Helper
 
-Automated script to deploy StrixNote on Proxmox using a Debian 12 cloud image.
+The StrixNote Proxmox Helper automates the creation of a Debian 12 virtual machine and installs StrixNote with optional NVIDIA GPU acceleration.
 
 ## Features
 
-- Fully automated VM creation
-- Debian 12 cloud image
-- Automatic storage and bridge selection
+- Creates a new Debian 12 virtual machine
+- Downloads and configures a Debian 12 cloud image
+- Automatically detects available storage and network bridges
+- Optional NVIDIA GPU passthrough
+- Optional NVIDIA driver installation
+- Automatic reboot and installation resume during GPU installations
 - Installs Docker, Git, and StrixNote
-- Minimal user input
+- Minimal user interaction
 
 ## Requirements
 
 - Proxmox VE host
 - Internet connection
 
+### GPU Install Requirements
+
+For NVIDIA GPU installations:
+
+- IOMMU enabled on the Proxmox host
+- NVIDIA GPU with CUDA support
+- The GPU must not already be assigned to another virtual machine
+
+The helper script automatically configures GPU passthrough for the new virtual machine.
+
 ## Usage
 
-Run directly on the Proxmox host:
+Clone the experimental GPU branch and run the helper script:
 
 ```bash
-git clone https://github.com/shaneaune/strixnote-proxmox-helper.git
+git clone --branch feature/gpu-acceleration https://github.com/shaneaune/strixnote-proxmox-helper.git
 cd strixnote-proxmox-helper
 chmod +x proxmox-create-strixnote-vm.sh
 ./proxmox-create-strixnote-vm.sh
 ```
 
-Or you can run the one line version
+Or run the latest version directly:
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/shaneaune/strixnote-proxmox-helper/main/proxmox-create-strixnote-vm.sh)
+bash <(curl -s https://raw.githubusercontent.com/shaneaune/strixnote-proxmox-helper/feature/gpu-acceleration/proxmox-create-strixnote-vm.sh)
 ```
 
-Follow the prompts.
+Follow the on-screen prompts.
+
+## What the Helper Does
+
+Depending on the options selected, the helper script will:
+
+- Create a new Debian 12 virtual machine
+- Configure CPU, memory, storage, and networking
+- Configure GPU passthrough (optional)
+- Clone the appropriate StrixNote branch
+- Launch the StrixNote installer
+- Monitor the installation process
+- Automatically reconnect after required reboots
+- Resume the installation until it completes
 
 ## Notes
-Some steps take several minutes (image download, package install)
-If the console appears blank, press Enter
+
+- The first installation may take 15–30 minutes depending on your hardware and internet connection.
+- During GPU installations the virtual machine will automatically reboot once. This is expected.
+- If the console appears blank while the helper is running, press **Enter** to refresh the display.
